@@ -2,7 +2,7 @@ name: Deploy to Droplet
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   # or you can also do: pull_request: if you want
 
 jobs:
