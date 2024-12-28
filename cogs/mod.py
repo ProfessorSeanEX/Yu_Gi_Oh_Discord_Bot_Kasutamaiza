@@ -5,49 +5,24 @@ class ModCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.guild_only()
-    @discord.slash_command(description="Kick a user (Admin only).", guild_ids=[551860536476827658])  # Replace with your server ID
+    @discord.slash_command(description="Kick a user.", guild_ids=[551860536476827658])
     @commands.has_permissions(kick_members=True)
-    async def kick(
-        self,
-        ctx: discord.ApplicationContext,
-        user: discord.Member,
-        reason: str = "No reason provided"
-    ):
-        """
-        Kicks a user from the guild.
-        Only users with Kick Members permission can use this command.
-        """
+    async def kick(self, ctx: discord.ApplicationContext, user: discord.Member, reason: str = "No reason provided"):
         try:
             await user.kick(reason=reason)
-            await ctx.respond(f"{user.mention} has been kicked. Reason: {reason}")
-        except discord.Forbidden:
-            await ctx.respond("I don't have permission to kick that user.")
+            await ctx.respond(f"Kicked {user.mention}. Reason: {reason}")
         except Exception as e:
-            await ctx.respond(f"An error occurred: {e}")
-            print(f"Kick command error: {e}")  # Log error for debugging
+            await ctx.respond(f"Failed to kick user: {e}")
 
-    @commands.guild_only()
-    @discord.slash_command(description="Ban a user (Admin only).", guild_ids=[551860536476827658])  # Replace with your server ID
+    @discord.slash_command(description="Ban a user.", guild_ids=[551860536476827658])
     @commands.has_permissions(ban_members=True)
-    async def ban(
-        self,
-        ctx: discord.ApplicationContext,
-        user: discord.Member,
-        reason: str = "No reason provided"
-    ):
-        """
-        Bans a user from the guild.
-        Only users with Ban Members permission can use this command.
-        """
+    async def ban(self, ctx: discord.ApplicationContext, user: discord.Member, reason: str = "No reason provided"):
         try:
             await user.ban(reason=reason)
-            await ctx.respond(f"{user.mention} has been banned. Reason: {reason}")
-        except discord.Forbidden:
-            await ctx.respond("I don't have permission to ban that user.")
+            await ctx.respond(f"Banned {user.mention}. Reason: {reason}")
         except Exception as e:
-            await ctx.respond(f"An error occurred: {e}")
-            print(f"Ban command error: {e}")  # Log error for debugging
+            await ctx.respond(f"Failed to ban user: {e}")
 
 async def setup(bot):
     await bot.add_cog(ModCog(bot))
+

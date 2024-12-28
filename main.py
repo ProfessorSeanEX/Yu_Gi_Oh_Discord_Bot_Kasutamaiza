@@ -3,6 +3,7 @@ import asyncio
 import discord
 from dotenv import load_dotenv
 from db.db_connection import create_db_pool
+from loguru import logger
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,12 +18,12 @@ bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
+    logger.info(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
     try:
         await bot.sync_commands()  # Sync slash commands
-        print("Slash commands synced.")
+        logger.info("Slash commands synced.")
     except Exception as e:
-        print(f"Failed to sync commands: {e}")
+        logger.error(f"Failed to sync commands: {e}")
 
 def load_cogs():
     """Synchronously load all cogs."""
@@ -34,27 +35,27 @@ def load_cogs():
     for cog in cogs_list:
         try:
             bot.load_extension(cog)  # No 'await' here
-            print(f"Successfully loaded cog: {cog}")
+            logger.info(f"Successfully loaded cog: {cog}")
         except Exception as e:
-            print(f"Failed to load cog {cog}: {e}")
+            logger.error(f"Failed to load cog {cog}: {e}")
 
 async def main():
     # Create a PostgreSQL connection pool for the bot
     try:
         bot.db_pool = await create_db_pool()
-        print("Database connection pool established.")
+        logger.info("Database connection pool established.")
     except Exception as e:
-        print(f"Failed to connect to the database: {e}")
+        logger.critical(f"Failed to connect to the database: {e}")
         return
 
     # Load cogs
-    load_cogs()  # Synchronous function
+    load_cogs()
 
     # Run the bot
     try:
         await bot.start(BOT_TOKEN)
     except Exception as e:
-        print(f"Error starting the bot: {e}")
+        logger.critical(f"Error starting the bot: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
