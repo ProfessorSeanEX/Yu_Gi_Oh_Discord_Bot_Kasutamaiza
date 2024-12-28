@@ -30,23 +30,18 @@ DB_PORT = int(DB_PORT)
 ssl_context = None
 if USE_SSL:
     if SSL_CERT_PATH:
+        logger.info(f"Using SSL with custom CA certificate: {SSL_CERT_PATH}")
         if not os.path.isfile(SSL_CERT_PATH):
             logger.error(f"SSL certificate file not found at: {SSL_CERT_PATH}")
             raise FileNotFoundError(f"Certificate file not found: {SSL_CERT_PATH}")
-        logger.info(f"Using SSL with custom CA certificate: {SSL_CERT_PATH}")
         ssl_context = ssl.create_default_context(cafile=SSL_CERT_PATH)
         ssl_context.verify_mode = ssl.CERT_REQUIRED
         ssl_context.check_hostname = True
     else:
         logger.info("Using SSL with default system CA certificates.")
-        ssl_context = ssl.create_default_context()
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        ssl_context.check_hostname = True
-
-    if os.getenv("DISABLE_SSL_VERIFICATION", "False").lower() in ("true", "1", "yes"):
-        logger.warning("SSL verification disabled! Not secure for production.")
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+        ssl_context = ssl.create_default_context()  # Use system-default certificates
+else:
+    logger.info("SSL is not enabled.")
 
 async def create_db_pool(retries=3, delay=5):
     """Create and return a global connection pool for PostgreSQL."""
