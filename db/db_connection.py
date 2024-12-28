@@ -44,7 +44,7 @@ if USE_SSL:
 async def create_db_pool():
     """Create and return a global connection pool for PostgreSQL."""
     try:
-        print("Attempting to create database connection pool...")
+        print(f"Attempting connection to {DB_HOST}:{DB_PORT} with SSL={USE_SSL}")
         pool = await asyncpg.create_pool(
             host=DB_HOST,
             port=DB_PORT,
@@ -52,14 +52,18 @@ async def create_db_pool():
             password=DB_PASSWORD,
             database=DB_NAME,
             ssl=ssl_context,
-            timeout=DB_TIMEOUT
+            timeout=60  # Extended timeout
         )
         print("Database pool created successfully!")
         return pool
+    except asyncpg.exceptions.ConnectionDoesNotExistError as e:
+        print(f"Database does not exist: {e}")
+    except asyncpg.exceptions.InvalidAuthorizationSpecificationError as e:
+        print(f"Invalid credentials: {e}")
     except Exception as e:
         import traceback
         print(f"Failed to create database pool: {e}")
-        traceback.print_exc()  # Prints the full stack trace
+        traceback.print_exc()
         raise
 
 # Example usage for testing
