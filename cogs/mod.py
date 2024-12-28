@@ -1,3 +1,5 @@
+# File: cogs/mod.py
+
 import discord
 from discord.ext import commands
 
@@ -13,6 +15,10 @@ class ModCog(commands.Cog):
         user: discord.Member, 
         reason: str = "No reason provided"
     ):
+        """
+        Kicks a user from the guild.
+        Only users with Kick Members permission can use this command.
+        """
         try:
             await user.kick(reason=reason)
             await ctx.respond(f"{user.mention} has been kicked. Reason: {reason}")
@@ -29,6 +35,10 @@ class ModCog(commands.Cog):
         user: discord.Member, 
         reason: str = "No reason provided"
     ):
+        """
+        Bans a user from the guild.
+        Only users with Ban Members permission can use this command.
+        """
         try:
             await user.ban(reason=reason)
             await ctx.respond(f"{user.mention} has been banned. Reason: {reason}")
@@ -37,5 +47,5 @@ class ModCog(commands.Cog):
         except Exception as e:
             await ctx.respond(f"An error occurred: {e}")
 
-def setup(bot):
-    bot.add_cog(ModCog(bot))
+async def setup(bot):
+    await bot.add_cog(ModCog(bot))

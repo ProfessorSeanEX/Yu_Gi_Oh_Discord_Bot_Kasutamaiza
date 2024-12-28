@@ -1,3 +1,5 @@
+# File: cogs/debug.py
+
 import discord
 from discord.ext import commands
 
@@ -23,11 +25,16 @@ class DebugCog(commands.Cog):
         Displays some debugging info about the bot or environment.
         Only bot owner can run this for security reasons.
         """
-        embed = discord.Embed(title="Bot Debug Info", color=discord.Color.yellow())
-        embed.add_field(name="Bot Latency", value=f"{round(self.bot.latency * 1000)} ms", inline=False)
-        embed.add_field(name="Guild Count", value=str(len(self.bot.guilds)), inline=False)
-        embed.set_footer(text="Debug Info")
-        await ctx.respond("Some debug info", ephemeral=True)
+        embed = discord.Embed(
+            title="Bot Debug Info",
+            description="List of basic commands:",
+            color=discord.Color.yellow()
+        )
+        embed.add_field(name="/ping", value="Check bot responsiveness.", inline=False)
+        embed.add_field(name="/helpme", value="Show this help message.", inline=False)
+        embed.add_field(name="/kick", value="Kick a user (Admin only).", inline=False)
+        embed.add_field(name="/ban", value="Ban a user (Admin only).", inline=False)
+        await ctx.respond(embed=embed)
 
     @discord.slash_command(description="Echo a message for debugging.")
     @commands.is_owner()
@@ -38,5 +45,5 @@ class DebugCog(commands.Cog):
         """
         await ctx.respond(f"You said: {message}")
 
-def setup(bot):
-    bot.add_cog(DebugCog(bot))
+async def setup(bot):
+    await bot.add_cog(DebugCog(bot))

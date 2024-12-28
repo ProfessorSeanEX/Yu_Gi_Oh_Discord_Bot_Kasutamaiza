@@ -1,3 +1,5 @@
+# File: cogs/misc.py
+
 import discord
 from discord.ext import commands
 
@@ -22,5 +24,5 @@ class MiscCog(commands.Cog):
         embed.add_field(name="/ban", value="Ban a user (Admin only).", inline=False)
         await ctx.respond(embed=embed)
 
-def setup(bot):
-    bot.add_cog(MiscCog(bot))
+async def setup(bot):
+    await bot.add_cog(MiscCog(bot))
