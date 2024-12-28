@@ -14,6 +14,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 USE_SSL = os.getenv("USE_SSL", "False").lower() in ("true", "1", "yes")
 DB_TIMEOUT = int(os.getenv("DB_TIMEOUT", 30))  # Default timeout to 30 seconds
+SSL_CERT_PATH = os.getenv("SSL_CERT_PATH", None)  # Path to CA certificate file if provided
 
 # Validate environment variables
 missing_vars = []
@@ -35,9 +36,18 @@ except ValueError:
 # Configure SSL if required
 ssl_context = None
 if USE_SSL:
-    ssl_context = ssl.create_default_context()
-    # Debugging note: Use these options only if SSL verification fails (not recommended for production)
+    if SSL_CERT_PATH:
+        # Use a custom CA certificate
+        print(f"Using SSL with custom CA certificate: {SSL_CERT_PATH}")
+        ssl_context = ssl.create_default_context(cafile=SSL_CERT_PATH)
+    else:
+        # Default SSL context (system-trusted CAs)
+        print("Using SSL with default system CA certificates.")
+        ssl_context = ssl.create_default_context()
+
+    # Optional: Disable hostname checking and certificate verification for debugging
     if os.getenv("DISABLE_SSL_VERIFICATION", "False").lower() in ("true", "1", "yes"):
+        print("WARNING: SSL verification disabled! This is not secure and should not be used in production.")
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
 
@@ -52,7 +62,7 @@ async def create_db_pool():
             password=DB_PASSWORD,
             database=DB_NAME,
             ssl=ssl_context,
-            timeout=60  # Extended timeout
+            timeout=DB_TIMEOUT
         )
         print("Database pool created successfully!")
         return pool
