@@ -9,19 +9,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up the SSH key and known_hosts
-      - name: Set up SSH key
+      - name: Add SSH Host Key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H 159.65.189.139 > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Set up SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.DROPLET_SSH_KEY }}
+          key_name: id_ed25519
           known_hosts: |
             159.65.189.139
 
-      # Step 3: Deploy the code and restart the bot
-      - name: Deploy
+      - name: Deploy to Droplet
         run: |
           ssh -v root@159.65.189.139 "cd /opt/kasutamaiza-bot && git pull && systemctl restart kasutamaiza-bot"
