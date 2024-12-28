@@ -1,0 +1,6 @@
+username = kasutamaiza-bot
+password = AVNS_EQEI7MvgN2dZbOPaH9W
+host = ultimate-pure-custom-format-kasutamaiza-do-user-17990459-0.i.db.ondigitalocean.com
+port = 25060
+database = yugiohbotdb
+sslmode = require

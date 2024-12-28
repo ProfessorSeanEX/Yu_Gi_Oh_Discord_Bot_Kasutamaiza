@@ -1,0 +1,27 @@
+name: Deploy to Droplet
+
+on:
+  push:
+    branches: [ "main" ]
+  # or you can also do: pull_request: if you want
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          known_hosts: |
+            159.65.189.139
+          # or you can specify github.com if you want or use host key checking method
+
+      - name: Deploy
+        run: |
+          # SSH into droplet and run deployment commands
+          ssh -o StrictHostKeyChecking=no root@159.65.189.139 "cd /opt/kasutamaiza-bot && git pull && /usr/bin/systemctl restart kasutamaiza-bot"
