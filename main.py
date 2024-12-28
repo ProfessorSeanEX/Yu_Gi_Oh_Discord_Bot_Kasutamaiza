@@ -33,7 +33,7 @@ def load_cogs():
     ]
     for cog in cogs_list:
         try:
-            bot.load_extension(cog)
+            bot.load_extension(cog)  # No 'await' here
             print(f"Successfully loaded cog: {cog}")
         except Exception as e:
             print(f"Failed to load cog {cog}: {e}")
@@ -48,7 +48,7 @@ async def main():
         return
 
     # Load cogs
-    load_cogs()  # No await since load_cogs is synchronous
+    load_cogs()  # Synchronous function
 
     # Run the bot
     try:

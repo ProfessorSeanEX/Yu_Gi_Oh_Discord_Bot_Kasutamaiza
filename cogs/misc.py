@@ -1,5 +1,3 @@
-# File: cogs/misc.py
-
 import discord
 from discord.ext import commands
 
@@ -13,9 +11,10 @@ class MiscCog(commands.Cog):
         Responds with 'Pong!' to check bot responsiveness.
         """
         try:
-            await ctx.respond("Pong!", ephemeral=True)  # Ephemeral response for cleanliness
+            latency = self.bot.latency * 1000  # Convert latency to milliseconds
+            await ctx.respond(f"Pong! Latency: {latency:.2f} ms", ephemeral=True)
         except Exception as e:
-            await ctx.respond(f"An error occurred: {e}")
+            await ctx.respond(f"An error occurred: {e}", ephemeral=True)
             print(f"Ping command error: {e}")  # Log error for debugging
 
     @discord.slash_command(description="Basic help command.", guild_ids=[551860536476827658])  # Replace with your server ID
@@ -35,7 +34,7 @@ class MiscCog(commands.Cog):
             embed.add_field(name="/ban", value="Ban a user (Admin only).", inline=False)
             await ctx.respond(embed=embed)
         except Exception as e:
-            await ctx.respond(f"An error occurred: {e}")
+            await ctx.respond(f"An error occurred: {e}", ephemeral=True)
             print(f"Helpme command error: {e}")  # Log error for debugging
 
 async def setup(bot):
