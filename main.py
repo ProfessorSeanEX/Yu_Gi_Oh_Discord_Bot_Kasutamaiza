@@ -9,6 +9,10 @@ from loguru import logger
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+if not BOT_TOKEN:
+    logger.critical("BOT_TOKEN is missing. Please check your .env file.")
+    exit(1)
+
 # Set up Discord intents
 intents = discord.Intents.default()
 intents.message_content = True
@@ -37,7 +41,7 @@ def load_cogs():
             bot.load_extension(cog)  # No 'await' here
             logger.info(f"Successfully loaded cog: {cog}")
         except Exception as e:
-            logger.error(f"Failed to load cog {cog}: {e}")
+            logger.error(f"Failed to load cog {cog}: {type(e).__name__} - {e}")
 
 async def main():
     # Create a PostgreSQL connection pool for the bot
