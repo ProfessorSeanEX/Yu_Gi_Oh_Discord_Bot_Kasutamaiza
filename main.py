@@ -13,14 +13,17 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 intents = discord.Intents.default()
 intents.message_content = True
 
-# Initialize the bot
-bot = commands.Bot(intents=intents)
+# Initialize the bot using `discord.Bot` for py-cord
+bot = discord.Bot(intents=intents)  # Use discord.Bot for py-cord to enable slash commands
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
-    await bot.tree.sync()  # Sync slash commands
-    print("Slash commands synced.")
+    try:
+        await bot.tree.sync()  # Sync slash commands
+        print("Slash commands synced.")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
 
 def load_cogs():
     """Synchronously load all cogs."""
@@ -38,13 +41,21 @@ def load_cogs():
 
 async def main():
     # Create a PostgreSQL connection pool for the bot
-    bot.db_pool = await create_db_pool()
+    try:
+        bot.db_pool = await create_db_pool()
+        print("Database connection pool established.")
+    except Exception as e:
+        print(f"Failed to connect to the database: {e}")
+        return
 
     # Load cogs
-    load_cogs()  # No await since load_cogs is now synchronous
+    load_cogs()  # No await since load_cogs is synchronous
 
     # Run the bot
-    await bot.start(BOT_TOKEN)
+    try:
+        await bot.start(BOT_TOKEN)
+    except Exception as e:
+        print(f"Error starting the bot: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
