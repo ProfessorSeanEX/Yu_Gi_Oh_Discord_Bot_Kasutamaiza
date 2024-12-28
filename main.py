@@ -1,7 +1,6 @@
 import os
 import asyncio
 import discord
-from discord.ext import commands
 from dotenv import load_dotenv
 from db.db_connection import create_db_pool
 
@@ -13,14 +12,14 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 intents = discord.Intents.default()
 intents.message_content = True
 
-# Initialize the bot using `discord.Bot` for py-cord
-bot = discord.Bot(intents=intents)  # Use discord.Bot for py-cord to enable slash commands
+# Initialize the bot using `discord.Bot`
+bot = discord.Bot(intents=intents)
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
     try:
-        await bot.tree.sync()  # Sync slash commands
+        await bot.sync_commands()  # Sync slash commands
         print("Slash commands synced.")
     except Exception as e:
         print(f"Failed to sync commands: {e}")
