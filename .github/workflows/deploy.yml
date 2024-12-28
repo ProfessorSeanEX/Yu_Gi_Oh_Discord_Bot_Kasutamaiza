@@ -28,4 +28,4 @@ jobs:
 
       - name: Deploy to Droplet
         run: |
-          ssh -v root@159.65.189.139 "cd /opt/kasutamaiza-bot && git pull && systemctl restart kasutamaiza-bot"
+          ssh root@159.65.189.139 "cd /opt/kasutamaiza-bot && git reset --hard HEAD && git pull && systemctl restart kasutamaiza-bot"
