@@ -20,11 +20,14 @@ async def on_ready():
     print("Slash commands synced.")
 
 async def load_cogs():
-    # Load cogs here
-    await bot.load_extension("cogs.misc")
-    await bot.load_extension("cogs.mod")
-    await bot.load_extension("cogs.debug")
-
+    cogs_list = [
+        "cogs.misc",
+        "cogs.mod",
+        "cogs.debug",  # etc.
+    ]
+    for cog in cogs_list:
+        await bot.load_extension(cog)
+        
 async def main():
     # Create a PG connection pool for the bot
     bot.db_pool = await create_db_pool()
