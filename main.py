@@ -1,42 +1,49 @@
+"""
+Main entry point for the Kasutamaiza Bot.
+- Initializes the bot and loads command modules (cogs).
+- Maintains scalability and separation of concerns.
+"""
+
 import os
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
+# Metadata: Bot info
+__version__ = "1.0.0"
+__author__ = "ProfessorSeanEX"
+__purpose__ = "A Discord bot to enhance Yu-Gi-Oh experiences and server engagement."
+
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 
-# Create bot instance with a unique prefix
+# Intents for the bot
 intents = discord.Intents.default()
-intents.messages = True
-intents.message_content = True  # Add this line
+intents.message_content = True
+intents.members = True  # Required for member-related commands
+
+# Bot setup
 bot = commands.Bot(command_prefix=">>", intents=intents)
 
-# Event: Bot is ready
+# Metadata: Commands list
+__commands__ = ["ping", "info", "help", "kick", "ban"]
+
 @bot.event
 async def on_ready():
+    """Triggered when the bot is successfully logged in."""
     print(f"Bot is online as {bot.user}")
-    print("Registered commands:", bot.commands)
+    await load_cogs(bot)
 
-# Event: Process all messages
-@bot.event
-async def on_message(message):
-    # Log the received message
-    print(f"Message received: {message.content}")
-    
-    # Ensure the bot doesn't respond to itself
-    if message.author == bot.user:
-        return
-
-    # Process commands
-    await bot.process_commands(message)
-
-# Command: Ping
-@bot.command(name="ping")
-async def ping(ctx):
-    print("Ping command triggered.")
-    await ctx.send("Pong!")
+async def load_cogs(bot):
+    """
+    Dynamically loads all command modules (cogs) from the 'cogs' directory.
+    """
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py'):
+            await bot.load_extension(f'cogs.{filename[:-3]}')
+            print(f'Loaded cog: {filename[:-3]}')
 
 # Run the bot
-bot.run(TOKEN)
+if __name__ == "__main__":
+    bot.run(TOKEN)
