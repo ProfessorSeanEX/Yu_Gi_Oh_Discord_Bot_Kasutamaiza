@@ -42,47 +42,47 @@ class YuGiOh(commands.Cog):
         dueling_link = "https://www.duelingbook.com/"
         await ctx.respond(f"Ready to duel? Visit DuelingBook here: {dueling_link}")
 
-@discord.slash_command(name="card_lookup", description="Look up a Yu-Gi-Oh! card by name.")
-async def slash_card_lookup(self, ctx: discord.ApplicationContext, card_name: str):
-    """
-    Fetches card information from the YGOPRODeck API.
-    """
-    logger.info(f"Card lookup command triggered by {ctx.user} for card: {card_name}")
-    from urllib.parse import quote
+    @discord.slash_command(name="card_lookup", description="Look up a Yu-Gi-Oh! card by name.")
+    async def slash_card_lookup(self, ctx: discord.ApplicationContext, card_name: str):
+        """
+        Fetches card information from the YGOPRODeck API.
+        """
+        logger.info(f"Card lookup command triggered by {ctx.user} for card: {card_name}")
+        from urllib.parse import quote
 
-    card_name_encoded = quote(card_name)  # Ensure proper URL encoding
-    api_url = f"https://db.ygoprodeck.com/api/v7/cardinfo.php?name={card_name_encoded}"
+        card_name_encoded = quote(card_name)  # Ensure proper URL encoding
+        api_url = f"https://db.ygoprodeck.com/api/v7/cardinfo.php?name={card_name_encoded}"
 
-    try:
-        response = requests.get(api_url)
-        response.raise_for_status()  # Raise an exception for HTTP errors
+        try:
+            response = requests.get(api_url)
+            response.raise_for_status()  # Raise an exception for HTTP errors
 
-        data = response.json()
-        if "data" not in data:
-            await ctx.respond(f"No card found with the name '{card_name}'.", ephemeral=True)
-            return
+            data = response.json()
+            if "data" not in data:
+                await ctx.respond(f"No card found with the name '{card_name}'.", ephemeral=True)
+                return
 
-        card = data["data"][0]  # Fetch the first matching card
-        embed = discord.Embed(
-            title=card["name"],
-            description=card.get("desc", "No description available."),
-            color=discord.Color.blue(),
-        )
-        embed.add_field(name="Type", value=card.get("type", "Unknown"), inline=True)
-        embed.add_field(name="Race", value=card.get("race", "Unknown"), inline=True)
-        embed.add_field(name="Attribute", value=card.get("attribute", "Unknown"), inline=True)
-        embed.set_thumbnail(url=card.get("card_images", [{}])[0].get("image_url", ""))
+            card = data["data"][0]  # Fetch the first matching card
+            embed = discord.Embed(
+                title=card["name"],
+                description=card.get("desc", "No description available."),
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="Type", value=card.get("type", "Unknown"), inline=True)
+            embed.add_field(name="Race", value=card.get("race", "Unknown"), inline=True)
+            embed.add_field(name="Attribute", value=card.get("attribute", "Unknown"), inline=True)
+            embed.set_thumbnail(url=card.get("card_images", [{}])[0].get("image_url", ""))
 
-        await ctx.respond(embed=embed)
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP Error: {e} for URL: {api_url}")
-        await ctx.respond("Failed to fetch card data. Please check the card name or try again later.", ephemeral=True)
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request Exception: {e}")
-        await ctx.respond("Failed to connect to the card database. Please try again later.", ephemeral=True)
-    except Exception as e:
-        logger.error(f"Unexpected error during card lookup: {e}")
-        await ctx.respond("An unexpected error occurred. Please try again later.", ephemeral=True)
+            await ctx.respond(embed=embed)
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP Error: {e} for URL: {api_url}")
+            await ctx.respond("Failed to fetch card data. Please check the card name or try again later.", ephemeral=True)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request Exception: {e}")
+            await ctx.respond("Failed to connect to the card database. Please try again later.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Unexpected error during card lookup: {e}")
+            await ctx.respond("An unexpected error occurred. Please try again later.", ephemeral=True)
 
     @discord.slash_command(name="deck_tips", description="Get tips for building a Yu-Gi-Oh deck.")
     async def slash_deck_tips(self, ctx: discord.ApplicationContext):
