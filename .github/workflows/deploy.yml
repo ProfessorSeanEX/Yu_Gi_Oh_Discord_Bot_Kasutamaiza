@@ -28,16 +28,23 @@ jobs:
 
       - name: Deploy to Droplet
         run: |
+          set -e
           ssh -o StrictHostKeyChecking=no root@159.65.189.139 <<EOF
-          cd /opt/kasutamaiza-bot
-          git reset --hard HEAD
-          git pull
-          source venv/bin/activate || python3 -m venv venv
+          cd /opt/kasutamaiza-bot || { echo "Directory not found"; exit 1; }
+          git reset --hard HEAD || { echo "Git reset failed"; exit 1; }
+          git pull || { echo "Git pull failed"; exit 1; }
+          if [ ! -d "venv" ]; then
+              python3.13 -m venv venv
+          fi
           source venv/bin/activate
-          pip install -r requirements.txt
-          systemctl restart kasutamaiza-bot
+          pip install -r requirements.txt || { echo "Pip install failed"; exit 1; }
+          systemctl restart kasutamaiza-bot || { echo "Service restart failed"; exit 1; }
           EOF
 
       - name: Deploy .env file
         run: |
-          scp -o StrictHostKeyChecking=no .env root@159.65.189.139:/opt/kasutamaiza-bot/.env
+          if [ -f ".env" ]; then
+              scp -o StrictHostKeyChecking=no .env root@159.65.189.139:/opt/kasutamaiza-bot/.env
+          else
+              echo ".env file not found, skipping deployment."
+          fi
