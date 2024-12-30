@@ -6,6 +6,7 @@ Debug commands for Kasutamaiza Bot.
 import discord
 from discord.ext import commands
 from loguru import logger
+from datetime import datetime, timezone  # Import datetime and timezone
 
 
 class Debug(commands.Cog):
@@ -45,64 +46,44 @@ class Debug(commands.Cog):
         ]
         return "\n".join(commands_list) if commands_list else "No commands available."
 
-    @discord.slash_command(name="diagnostics", description="Get full bot diagnostics and recent error logs.")
+    @discord.slash_command(name="tdiagnostics", description="Get full bot diagnostics and recent error logs.")
     async def slash_diagnostics(self, ctx: discord.ApplicationContext):
         """
         Provides full diagnostic information about the bot's state, environment, and recent errors.
         """
         logger.info(f"Diagnostics command triggered by {ctx.user}")
-
-        # Defer the response to avoid interaction timeout
-        await ctx.defer(ephemeral=True)
+        await ctx.defer(ephemeral=True)  # Defer response to avoid timeouts
 
         # Collecting bot metadata
         bot_name = self.bot.user.name
         bot_id = self.bot.user.id
         total_commands = len(self.bot.application_commands)
-        uptime = str(discord.utils.utcnow() - self.bot.start_time).split(".")[0] if hasattr(self.bot, "start_time") else "Unknown"
+        uptime = (
+            str(datetime.now(timezone.utc) - self.bot.start_time).split(".")[0]
+            if hasattr(self.bot, "start_time") else "Unknown"
+        )
 
         # Categorizing commands
-        guild_commands = [
-            cmd.name for cmd in self.bot.application_commands if cmd.guild_ids
-        ]
-        global_commands = [
-            cmd.name for cmd in self.bot.application_commands if not cmd.guild_ids
-        ]
+        guild_commands = [cmd.name for cmd in self.bot.application_commands if cmd.guild_ids]
+        global_commands = [cmd.name for cmd in self.bot.application_commands if not cmd.guild_ids]
 
         # Checking permissions
         perms = ctx.guild.me.guild_permissions
         required_permissions = [
-            "administrator",
-            "manage_guild",
-            "manage_roles",
-            "send_messages",
-            "manage_messages",
-            "read_message_history",
-            "manage_channels",
+            "administrator", "manage_guild", "manage_roles",
+            "send_messages", "manage_messages", "read_message_history", "manage_channels"
         ]
-        missing_perms = [
-            perm for perm in required_permissions if not getattr(perms, perm, False)
-        ]
-        permissions_info = (
-            "All required permissions are present."
-            if not missing_perms
-            else f"Missing permissions: {', '.join(missing_perms)}"
-        )
+        missing_perms = [perm for perm in required_permissions if not getattr(perms, perm, False)]
+        permissions_info = "✅ All required permissions are present." if not missing_perms else f"❌ Missing: {', '.join(missing_perms)}"
 
         # Loaded cogs
-        loaded_cogs = "\n".join(self.bot.cogs.keys()) or "No cogs are currently loaded."
+        loaded_cogs = "\n".join(f"- {cog}" for cog in self.bot.cogs.keys())
 
-        # Environment validation
-        environment_info = []
-        if self.token:
-            environment_info.append("✅ `BOT_TOKEN` is set.")
-        else:
-            environment_info.append("❌ `BOT_TOKEN` is missing.")
-
-        if self.guild_id:
-            environment_info.append(f"✅ `GUILD_ID`: `{self.guild_id}`")
-        else:
-            environment_info.append("❌ `GUILD_ID` is missing or invalid.")
+        # Environment variables
+        environment_info = [
+            "✅ `BOT_TOKEN` is set." if self.token else "❌ `BOT_TOKEN` is missing.",
+            f"✅ `GUILD_ID`: `{self.guild_id}`" if self.guild_id else "❌ `GUILD_ID` is missing or invalid."
+        ]
 
         # Formatting diagnostics response
         diagnostics_info = f"""
@@ -128,8 +109,8 @@ class Debug(commands.Cog):
         {'\n'.join(environment_info)}
         """
 
-        # Send the deferred response
-        await ctx.followup.send(diagnostics_info)
+        await ctx.followup.send(diagnostics_info, ephemeral=True)
+
 
 
 def setup(bot: discord.Bot, guild_id: int, token: str):

@@ -78,6 +78,9 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to log registered commands: {e}")
 
+    #Set bot uptime
+    bot.start_time = datetime.now(timezone.utc)  # Set start time when the bot becomes ready
+    
     # Start heartbeat task
     bot.loop.create_task(heartbeat())
 
