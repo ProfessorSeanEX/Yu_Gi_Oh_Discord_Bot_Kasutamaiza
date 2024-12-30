@@ -1,11 +1,12 @@
 """
 Utility commands for Kasutamaiza Bot.
-- Provides bot-related information and server details.
+- Provides bot-related information, server details, and utility commands.
 """
 
 import discord
 from discord.ext import commands
 from loguru import logger
+from db_manager import db_manager  # Import the database manager
 
 
 class Utility(commands.Cog):
@@ -15,7 +16,7 @@ class Utility(commands.Cog):
     """
 
     # Class-level metadata
-    __version__ = "1.0.1"
+    __version__ = "1.0.2"
     __author__ = "ProfessorSeanEX"
     __description__ = "Provides bot-related information and server details."
 
@@ -100,6 +101,23 @@ class Utility(commands.Cog):
         invite_url = discord.utils.oauth_url(client_id=self.bot.user.id, permissions=permissions)
         logger.info(f"Invite link command triggered by {ctx.user}")
         await ctx.respond(f"**Invite Kasutamaiza Bot**:\n{invite_url}")
+
+    @discord.slash_command(name="test_db", description="Test the database connection.")
+    async def slash_test_db(self, ctx: discord.ApplicationContext):
+        """
+        Tests the database connection by querying the bot_users table.
+        """
+        logger.info(f"Test database command triggered by {ctx.user}")
+        try:
+            result = await db_manager.fetch("SELECT * FROM bot_users LIMIT 1;")
+            if result:
+                first_user = result[0]
+                await ctx.respond(f"**Database Test Successful**\nFirst User: {first_user['username']}")
+            else:
+                await ctx.respond("**Database Test Successful**\nNo users found in the database.")
+        except Exception as e:
+            logger.error(f"Database test failed: {e}")
+            await ctx.respond(f"**Database Error**: {e}")
 
 
 def setup(bot: discord.Bot, guild_id: int, token: str):

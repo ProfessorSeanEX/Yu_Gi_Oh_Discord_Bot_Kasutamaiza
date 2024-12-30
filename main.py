@@ -1,6 +1,6 @@
 """
 Main entry point for the Kasutamaiza Bot.
-- Initializes the bot, performs permissions checks, and loads command modules (cogs).
+- Initializes the bot, performs permissions checks, loads command modules (cogs), and utility modules (utils).
 """
 
 import os
@@ -11,10 +11,11 @@ from discord.ext import commands
 from dotenv import load_dotenv, find_dotenv  # Enhanced loading for dotenv
 from loguru import logger
 from datetime import datetime, timedelta, timezone  # Import timezone for UTC
+from db_manager import db_manager  # Import DatabaseManager
 
 
 # Metadata
-__version__ = "1.1.0"
+__version__ = "1.3.0"
 __author__ = "ProfessorSeanEX"
 BOT_TYPE = "Slash Command-Based"
 
@@ -54,6 +55,14 @@ async def on_ready():
     logger.info(f"Bot Type: {BOT_TYPE}")
     logger.info(f"Connected to Guild: {GUILD_ID}")
 
+    # Initialize database connection pool
+    try:
+        await db_manager.initialize_pool()
+        logger.info("Database connection pool initialized successfully.")
+    except Exception as e:
+        logger.critical(f"Failed to initialize database pool: {e}")
+        exit(1)
+
     # Perform permissions check
     try:
         guild = bot.get_guild(GUILD_ID)
@@ -64,11 +73,11 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to check permissions: {e}")
 
-    # Load cogs and sync commands concurrently
+    # Load cogs and utils concurrently
     try:
-        logger.info("Starting cog loading and command syncing...")
-        await asyncio.gather(load_cogs(bot), bot.sync_commands())
-        logger.info("Cogs loaded and commands synced successfully.")
+        logger.info("Starting cog and utility module loading...")
+        await asyncio.gather(load_cogs(bot), load_utils(), bot.sync_commands())
+        logger.info("Cogs and utilities loaded successfully. Commands synced.")
     except Exception as e:
         logger.error(f"Error during startup: {e}")
 
@@ -78,9 +87,9 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to log registered commands: {e}")
 
-    #Set bot uptime
+    # Set bot uptime
     bot.start_time = datetime.now(timezone.utc)  # Set start time when the bot becomes ready
-    
+
     # Start heartbeat task
     bot.loop.create_task(heartbeat())
 
@@ -156,6 +165,34 @@ async def load_cogs(bot: discord.Bot):
         logger.warning(f"{failed_cogs} cog(s) failed to load.")
 
 
+async def load_utils():
+    """
+    Dynamically loads all utility modules from the 'utils' directory.
+    """
+    if not os.path.exists('./utils'):
+        logger.warning("Utilities directory './utils' does not exist. Skipping utility loading.")
+        return
+
+    failed_utils = 0
+    for filename in os.listdir('./utils'):
+        if filename.endswith('.py'):
+            module_name = f'utils.{filename[:-3]}'
+            try:
+                logger.debug(f"Attempting to load utility module: {module_name}")
+                module = __import__(module_name)
+                if hasattr(module, 'initialize') and callable(module.initialize):
+                    await module.initialize()  # Call initialize function if present
+                    logger.info(f"Successfully initialized utility module: {module_name}")
+                else:
+                    logger.warning(f"Utility module {module_name} has no 'initialize' function.")
+            except Exception as e:
+                failed_utils += 1
+                logger.error(f"Failed to load utility module {module_name}: {e}")
+
+    if failed_utils > 0:
+        logger.warning(f"{failed_utils} utility module(s) failed to load.")
+
+
 def log_registered_commands():
     """
     Log all registered slash commands and their options.
@@ -165,7 +202,7 @@ def log_registered_commands():
         logger.info(
             f" - Command: {cmd.name} | Description: {cmd.description} | Guild ID(s): {cmd.guild_ids or 'Global'}"
         )
-        
+
         # Log options if available
         if hasattr(cmd, 'options') and cmd.options:
             option_details = ", ".join(
