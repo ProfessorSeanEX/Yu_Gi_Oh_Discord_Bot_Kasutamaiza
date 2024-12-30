@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone  # Import timezone for UTC
 
 import sys
 sys.path.append('/opt/kasutamaiza-bot')  # Add the directory explicitly
-from db_manager import db_manager
+from utils.db_manager import db_manager
 
 
 # Metadata
@@ -177,6 +177,7 @@ async def load_utils():
         return
 
     failed_utils = 0
+    loaded_utils = 0
     for filename in os.listdir('./utils'):
         if filename.endswith('.py'):
             module_name = f'utils.{filename[:-3]}'
@@ -187,13 +188,13 @@ async def load_utils():
                     await module.initialize()  # Call initialize function if present
                     logger.info(f"Successfully initialized utility module: {module_name}")
                 else:
-                    logger.warning(f"Utility module {module_name} has no 'initialize' function.")
+                    logger.info(f"Utility module {module_name} loaded successfully (no initialization required).")
+                loaded_utils += 1
             except Exception as e:
                 failed_utils += 1
                 logger.error(f"Failed to load utility module {module_name}: {e}")
 
-    if failed_utils > 0:
-        logger.warning(f"{failed_utils} utility module(s) failed to load.")
+    logger.info(f"Utility loading complete: {loaded_utils} loaded, {failed_utils} failed.")
 
 
 def log_registered_commands():

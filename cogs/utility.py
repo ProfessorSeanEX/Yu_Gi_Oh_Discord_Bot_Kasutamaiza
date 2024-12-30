@@ -6,7 +6,7 @@ Utility commands for Kasutamaiza Bot.
 import discord
 from discord.ext import commands
 from loguru import logger
-from db_manager import db_manager  # Import the database manager
+from utils.db_manager import db_manager  # Import the database manager
 
 
 class Utility(commands.Cog):
