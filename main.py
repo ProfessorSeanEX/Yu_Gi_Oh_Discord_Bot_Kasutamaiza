@@ -11,7 +11,10 @@ from discord.ext import commands
 from dotenv import load_dotenv, find_dotenv  # Enhanced loading for dotenv
 from loguru import logger
 from datetime import datetime, timedelta, timezone  # Import timezone for UTC
-from db_manager import db_manager  # Import DatabaseManager
+
+import sys
+sys.path.append('/opt/kasutamaiza-bot')  # Add the directory explicitly
+from db_manager import db_manager
 
 
 # Metadata
