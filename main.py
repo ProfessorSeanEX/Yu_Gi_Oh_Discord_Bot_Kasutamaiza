@@ -5,20 +5,33 @@ Main entry point for the Kasutamaiza Bot.
 
 import os
 import time
+import asyncio  # For concurrent tasks
 import discord
 from discord.ext import commands
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv  # Enhanced loading for dotenv
 from loguru import logger
+from datetime import datetime, timedelta, timezone  # Import timezone for UTC
+
 
 # Metadata
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "ProfessorSeanEX"
 BOT_TYPE = "Slash Command-Based"
 
 # Load environment variables
-load_dotenv()
+if not load_dotenv(find_dotenv()):  # Attempt to load .env file
+    logger.critical("Failed to load .env file. Ensure the file exists and is correctly configured.")
+    exit(1)
+
+# Load environment variables
 TOKEN = os.getenv("BOT_TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID"))  # Replace with your actual server ID in the .env file
+GUILD_ID = os.getenv("GUILD_ID")
+
+if not TOKEN or not GUILD_ID:
+    logger.critical("Environment variables BOT_TOKEN or GUILD_ID are missing or invalid. Exiting.")
+    exit(1)
+
+GUILD_ID = int(GUILD_ID)
 
 # Set up logging
 logger.add("bot.log", rotation="10 MB", retention="10 days", backtrace=True, diagnose=True)
@@ -51,30 +64,35 @@ async def on_ready():
     except Exception as e:
         logger.error(f"Failed to check permissions: {e}")
 
-    # Load cogs with time measurement
+    # Load cogs and sync commands concurrently
     try:
-        logger.info("Loading cogs...")
-        await load_cogs(bot)
-        logger.info("Cogs loaded successfully.")
+        logger.info("Starting cog loading and command syncing...")
+        await asyncio.gather(load_cogs(bot), bot.sync_commands())
+        logger.info("Cogs loaded and commands synced successfully.")
     except Exception as e:
-        logger.error(f"Failed to load cogs: {e}")
-        logger.exception(e)
-
-    # Sync commands and measure time
-    try:
-        logger.info("Starting command sync with Discord...")
-        start_time = time.monotonic()
-        await bot.sync_commands()
-        elapsed_time = time.monotonic() - start_time
-        logger.info(f"Slash commands synced successfully in {elapsed_time:.2f} seconds.")
-    except Exception as e:
-        logger.error(f"Failed to sync commands: {e}")
+        logger.error(f"Error during startup: {e}")
 
     # Log all registered slash commands
     try:
         log_registered_commands()
     except Exception as e:
         logger.error(f"Failed to log registered commands: {e}")
+
+    # Start heartbeat task
+    bot.loop.create_task(heartbeat())
+
+
+async def heartbeat():
+    """
+    Logs a heartbeat message periodically to indicate the bot is running.
+    """
+    while True:
+        try:
+            logger.info("Heartbeat: Bot is online and operational.")
+            # Use timezone-aware datetime for UTC
+            await discord.utils.sleep_until(datetime.now(timezone.utc) + timedelta(minutes=10))
+        except Exception as e:
+            logger.error(f"Heartbeat encountered an error: {e}")
 
 
 async def check_permissions(guild: discord.Guild):
@@ -107,6 +125,11 @@ async def load_cogs(bot: discord.Bot):
     """
     Dynamically loads all command modules (cogs) from the 'cogs' directory.
     """
+    if not os.path.exists('./cogs'):
+        logger.critical("Cogs directory './cogs' does not exist. Exiting.")
+        exit(1)
+
+    failed_cogs = 0
     for filename in os.listdir('./cogs'):
         if filename.endswith('.py'):
             module_name = f'cogs.{filename[:-3]}'
@@ -117,14 +140,17 @@ async def load_cogs(bot: discord.Bot):
                 # Ensure `setup` function is present and callable
                 if hasattr(module, 'setup') and callable(module.setup):
                     start_time = time.monotonic()
-                    module.setup(bot, GUILD_ID)  # Pass the `GUILD_ID` to the cog setup
+                    module.setup(bot, GUILD_ID, TOKEN)  # Pass GUILD_ID and TOKEN
                     elapsed_time = time.monotonic() - start_time
                     logger.info(f"Successfully loaded cog: {module_name} in {elapsed_time:.2f} seconds.")
                 else:
                     logger.error(f"Cog {module_name} is missing a valid 'setup' function.")
             except Exception as e:
+                failed_cogs += 1
                 logger.error(f"Failed to load cog {module_name}: {e}")
-                logger.exception(e)
+
+    if failed_cogs > 0:
+        logger.warning(f"{failed_cogs} cog(s) failed to load.")
 
 
 def log_registered_commands():

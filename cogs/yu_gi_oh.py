@@ -8,15 +8,27 @@ from discord.ext.pages import Paginator  # Pagination for multi-result handling
 from loguru import logger
 import requests  # Required for the card lookup command
 
-class YuGiOh(commands.Cog):
-    """Yu-Gi-Oh-specific commands for the bot."""
 
-    # Class-level attribute for command categorization
+class YuGiOh(commands.Cog):
+    """
+    Yu-Gi-Oh-specific commands for the bot.
+    Includes tools like card lookup, deck tips, and tournament links.
+    """
+
+    # Class-level metadata
+    __version__ = "1.0.2"
+    __author__ = "ProfessorSeanEX"
+    __description__ = "Provides Yu-Gi-Oh-specific tools and resources."
+
     category = "Yu-Gi-Oh"
 
-    def __init__(self, bot, guild_id):
+    def __init__(self, bot, guild_id, token):
+        """
+        Initializes the Yu-Gi-Oh cog.
+        """
         self.bot = bot
         self.guild_id = guild_id
+        self.token = token
 
         # Dynamically update guild_ids for commands
         for cmd in self.__cog_commands__:
@@ -65,21 +77,13 @@ class YuGiOh(commands.Cog):
         """
         logger.info(f"Card lookup triggered by {ctx.user} with query: {query}, mode: {search_mode}")
 
-        # Base API URL
         api_url = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
         params = {"fname": query}
 
         # Adjust API parameters based on search mode
-        if search_mode == "type":
-            params["type"] = query
-        elif search_mode == "archetype":
-            params["archetype"] = query
-        elif search_mode == "attribute":
-            params["attribute"] = query
-        elif search_mode == "race":
-            params["race"] = query
-        elif search_mode == "level":
-            params["level"] = query
+        search_modes = ["type", "archetype", "attribute", "race", "level"]
+        if search_mode in search_modes:
+            params[search_mode] = query
 
         # Add stat filters
         for key, value in {
@@ -111,25 +115,24 @@ class YuGiOh(commands.Cog):
             card = cards[0]
             embed = self.generate_card_embed(card)
             await ctx.respond(embed=embed)
-        
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP Error: {e} for URL: {api_url}")
-            await ctx.respond("Failed to fetch card data. Please check the card name or try again later.", ephemeral=True)
-        except requests.exceptions.RequestException as e:
+
+        except requests.RequestException as e:
             logger.error(f"Request Exception: {e}")
-            await ctx.respond("Failed to connect to the card database. Please try again later.", ephemeral=True)
-        except Exception as e:
-            logger.error(f"Unexpected error during card lookup: {e}")
-            await ctx.respond("An unexpected error occurred. Please try again later.", ephemeral=True) 
+            await ctx.respond("❌ Failed to connect to the card database. Please try again later.", ephemeral=True)
         except KeyError:
             await ctx.respond(f"No card found matching {query} in {search_mode} mode.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Unexpected error during card lookup: {e}")
+            await ctx.respond("❌ An unexpected error occurred. Please try again later.", ephemeral=True)
 
     def generate_card_embed(self, card):
         """
-        Generates a Discord embed for the provided card data.
+        Generates a detailed Discord embed for the provided card data.
+        Includes all relevant information about the card.
         """
+        # Basic card details
         embed = discord.Embed(
-            title=card["name"],
+            title=card.get("name", "Unknown Card"),
             description=self.generate_card_description(card),
             color=discord.Color.blue(),
         )
@@ -138,70 +141,69 @@ class YuGiOh(commands.Cog):
         embed.add_field(name="Attribute", value=card.get("attribute", "N/A"), inline=True)
 
         # Add stats dynamically
-        for field, key in {
+        stats = {
             "ATK": "atk",
             "DEF": "def",
             "Level/Rank": "level",
             "Pendulum Scale": "scale",
             "Link Rating": "linkval",
-        }.items():
+        }
+        for field, key in stats.items():
             if key in card:
                 embed.add_field(name=field, value=card.get(key, "N/A"), inline=True)
 
         if "linkmarkers" in card:
             embed.add_field(name="Link Arrows", value=", ".join(card["linkmarkers"]), inline=True)
 
-        # Archetype, Card Sets, and Prices
+        # Archetype, Sets, and Prices
         if card.get("archetype"):
             embed.add_field(name="Archetype", value=card["archetype"], inline=True)
+
         if "card_sets" in card:
             sets = "\n".join([f"- {s['set_name']} ({s['set_code']})" for s in card["card_sets"]])
             embed.add_field(name="Card Sets", value=sets, inline=False)
+
         if "card_prices" in card:
             prices = card["card_prices"][0]
-            embed.add_field(
-                name="Prices",
-                value=(
-                    f"TCGPlayer: ${prices.get('tcgplayer_price', 'N/A')}\n"
-                    f"Ebay: ${prices.get('ebay_price', 'N/A')}"
-                ),
-                inline=False,
-            )
+            price_details = "\n".join([
+                f"**TCGPlayer**: ${prices.get('tcgplayer_price', 'N/A')}",
+                f"**Ebay**: ${prices.get('ebay_price', 'N/A')}",
+                f"**Amazon**: ${prices.get('amazon_price', 'N/A')}",
+                f"**CoolStuffInc**: ${prices.get('coolstuffinc_price', 'N/A')}",
+            ])
+            embed.add_field(name="Prices", value=price_details, inline=False)
 
-        # Thumbnail
+        # Images
         if "card_images" in card:
             embed.set_thumbnail(url=card["card_images"][0].get("image_url", ""))
+            embed.set_image(url=card["card_images"][0].get("image_url_cropped", ""))
+
+        # Card-specific information
+        if "banlist_info" in card:
+            banlist = card["banlist_info"]
+            banlist_details = "\n".join(
+                [f"**{key.capitalize()}**: {value}" for key, value in banlist.items()]
+            )
+            embed.add_field(name="Banlist Information", value=banlist_details, inline=False)
+
+        # Add materials for Fusion/Synchro/XYZ/Link monsters
+        if "materials" in card:
+            embed.add_field(name="Materials", value=card["materials"], inline=False)
 
         return embed
-
-    def generate_card_description(self, card):
-        """
-        Generates the card description, including Pendulum Effect if applicable.
-        """
-        description = card.get("desc", "No description available.")
-        if "pendulum_effect" in card:
-            description = (
-                f"**Pendulum Effect:** {card.get('pendulum_effect', '')}\n\n"
-                f"**Monster Effect:** {description}"
-            )
-        return description
 
     async def handle_multi_result(self, ctx, cards):
         """
         Handles multiple card results by providing a paginated embed.
         """
-        embeds = []
-        for card in cards:
-            embed = discord.Embed(
+        embeds = [
+            discord.Embed(
                 title=card["name"],
                 description="Multiple results found. Select a card.",
                 color=discord.Color.blue(),
-            )
-            embed.add_field(name="Type", value=card.get("type", "Unknown"), inline=True)
-            if "card_images" in card:
-                embed.set_thumbnail(url=card["card_images"][0].get("image_url", ""))
-            embeds.append(embed)
-
+            ).set_thumbnail(url=card["card_images"][0].get("image_url", ""))
+            for card in cards
+        ]
         paginator = Paginator(pages=embeds)
         await paginator.respond(ctx.interaction)
 
@@ -236,12 +238,12 @@ class YuGiOh(commands.Cog):
         await ctx.respond(tournament_links)
 
 
-def setup(bot: discord.Bot, guild_id: int):
+def setup(bot: discord.Bot, guild_id: int, token: str):
     """
     Sets up the Yu-Gi-Oh cog by adding it to the bot.
     """
     logger.debug(f"Setting up Yu-Gi-Oh cog with guild_id: {guild_id}")
-    bot.add_cog(YuGiOh(bot, guild_id))
+    bot.add_cog(YuGiOh(bot, guild_id, token))
     logger.info("Yu-Gi-Oh cog has been added.")
 
     logger.info("Registered commands after Yu-Gi-Oh cog setup:")

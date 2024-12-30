@@ -6,17 +6,28 @@ General commands for Kasutamaiza Bot.
 import discord
 from discord.ext import commands
 from loguru import logger
+from datetime import datetime
 
 
 class General(commands.Cog):
-    """General commands for the bot."""
+    """
+    General commands for the bot, providing essential interactions such as health checks
+    and help command access.
+    """
 
-    # Class-level attribute for command categorization
-    category = "General"
+    # Class-level metadata
+    __version__ = "1.0.0"
+    __author__ = "ProfessorSeanEX"
+    __description__ = "Handles basic bot interactions and utilities."
 
-    def __init__(self, bot, guild_id):
+    def __init__(self, bot, guild_id, token):
+        """
+        Initializes the General cog.
+        """
         self.bot = bot
         self.guild_id = guild_id
+        self.token = token
+        self.start_time = discord.utils.utcnow()  # Track bot uptime
 
         # Dynamically update guild_ids for commands
         for cmd in self.__cog_commands__:
@@ -34,119 +45,78 @@ class General(commands.Cog):
         ]
         return "\n".join(commands_list) if commands_list else "No commands available."
 
-    @discord.slash_command(name="ping", description="Check if the bot is online.")
+    @discord.slash_command(name="ping", description="Check if the bot is online and view latency.")
     async def slash_ping(self, ctx: discord.ApplicationContext):
         """
-        Slash command to check if the bot is online.
+        Slash command to check if the bot is online and display latency.
         """
-        logger.info(f"Slash ping command triggered by {ctx.user}")
-        await ctx.respond("Pong!")
-
-    @discord.slash_command(name="info", description="Provides information about the bot.")
-    async def slash_info(self, ctx: discord.ApplicationContext):
-        """
-        Provides information about the bot.
-        """
-        logger.info(f"Info command triggered by {ctx.user}")
-        bot_info = f"""
-        **Kasutamaiza Bot**
-        - Version: 1.0.0
-        - Author: ProfessorSeanEX
-        - Purpose: Enhance your Yu-Gi-Oh experience and server engagement.
-        """
-        await ctx.respond(bot_info)
+        latency = round(self.bot.latency * 1000)  # Convert latency to milliseconds
+        logger.info(f"Ping command triggered by {ctx.user}")
+        await ctx.respond(f"Pong! Latency: {latency}ms.")
 
     @discord.slash_command(name="help", description="Display the help message.")
     async def slash_help(self, ctx: discord.ApplicationContext):
         """
-        Displays a help message with available commands and their usage.
+        Displays a dynamic help message with all available commands organized by cog.
+        Includes a quick-start guide for new users.
         """
         logger.info(f"Help command triggered by {ctx.user}")
 
-        general_commands = self.get_commands_by_category("General")
-        moderation_commands = self.get_commands_by_category("Moderation")
-        yugioh_commands = self.get_commands_by_category("Yu-Gi-Oh")
+        # Start building the help text
+        help_text = "**Kasutamaiza Bot Commands**\n\n"
 
-        help_text = f"""
-        **Kasutamaiza Bot Commands**
+        # Quick-start guide
+        help_text += (
+            "**Quick Start**\n"
+            "- Use `/ping` to check if the bot is online.\n"
+            "- Use `/help` to see all commands.\n"
+            "- Use `/card_lookup` to find Yu-Gi-Oh! cards.\n\n"
+        )
 
-        **General Commands**
-        {general_commands}
+        # Iterate through all cogs and their commands
+        for cog_name, cog in self.bot.cogs.items():
+            # Fetch cog description from docstring or fallback
+            cog_description = cog.__doc__.strip() if cog.__doc__ else "No description available."
+            help_text += f"**{cog_name}** - {cog_description}\n"
 
-        **Moderation Commands**
-        {moderation_commands}
+            # Get all commands in the cog
+            cog_commands = [
+                f"- `/{cmd.name}`: {cmd.description}"
+                for cmd in self.bot.application_commands
+                if cmd.cog_name == cog_name
+            ]
 
-        **Yu-Gi-Oh Commands**
-        {yugioh_commands}
-        """
+            # Add commands or mention no commands are available
+            if cog_commands:
+                help_text += "\n".join(cog_commands) + "\n\n"
+            else:
+                help_text += "No commands available.\n\n"
+
+        # Handle case with no cogs loaded
+        if not self.bot.cogs:
+            help_text += "No commands or cogs are currently loaded.\n\n"
+
         await ctx.respond(help_text)
 
-    @discord.slash_command(name="check_permissions", description="Check the bot's permissions in the current channel.")
-    async def slash_check_permissions(self, ctx: discord.ApplicationContext):
+
+    @discord.slash_command(name="uptime", description="Display the bot's uptime.")
+    async def slash_uptime(self, ctx: discord.ApplicationContext):
         """
-        Checks the bot's permissions in the current channel.
+        Displays the bot's uptime since the last restart.
         """
-        perms = ctx.guild.me.guild_permissions
-        permission_list = [
-            "manage_guild",  # Manage Server
-            "administrator",  # Admin rights
-            "manage_roles",
-            "send_messages",
-            "manage_messages",
-            "read_message_history",
-            "manage_channels",
-        ]
-        result = {perm: getattr(perms, perm, False) for perm in permission_list}
-        logger.info(f"Permissions checked in {ctx.guild.name}: {result}")
-        await ctx.respond(f"Permissions:\n{result}")
-
-    @discord.slash_command(name="diagnostics", description="Get bot diagnostics information.")
-    async def slash_diagnostics(self, ctx: discord.ApplicationContext):
-        """
-        Provides diagnostic information about the bot's state.
-        """
-        logger.info(f"Diagnostics command triggered by {ctx.user}")
-
-        # Collect basic information
-        diagnostics_info = f"""
-        **Bot Diagnostics**
-        - Name: {self.bot.user.name}
-        - ID: {self.bot.user.id}
-        - Connected Guild: {ctx.guild.name} (ID: {ctx.guild.id})
-        - Total Slash Commands: {len(self.bot.application_commands)}
-        - Guild Slash Commands: {', '.join(cmd.name for cmd in self.bot.application_commands if cmd.guild_ids)}
-        - Global Slash Commands: {', '.join(cmd.name for cmd in self.bot.application_commands if not cmd.guild_ids)}
-        """
-
-        # Permissions
-        perms = ctx.guild.me.guild_permissions
-        missing_perms = [
-            perm for perm in [
-                "administrator",
-                "manage_guild",
-                "manage_roles",
-                "send_messages",
-                "manage_messages",
-                "read_message_history",
-                "manage_channels",
-            ]
-            if not getattr(perms, perm, False)
-        ]
-        permissions_info = "All required permissions are present." if not missing_perms else f"Missing permissions: {', '.join(missing_perms)}"
-
-        # Final response
-        diagnostics_info += f"\n\n**Permissions Check**\n{permissions_info}"
-        logger.info(f"Diagnostics Info:\n{diagnostics_info}")
-        await ctx.respond(diagnostics_info)
+        uptime = discord.utils.utcnow() - self.start_time
+        uptime_str = str(uptime).split(".")[0]  # Remove microseconds
+        logger.info(f"Uptime command triggered by {ctx.user}")
+        await ctx.respond(f"**Uptime**: {uptime_str}")
 
 
-def setup(bot: discord.Bot, guild_id: int):
+def setup(bot: discord.Bot, guild_id: int, token: str):
     """
     Sets up the General cog by adding it to the bot.
     """
     logger.debug(f"Setting up General cog with guild_id: {guild_id}")
-    bot.add_cog(General(bot, guild_id))
-    logger.info("General cog has been added.")
+    bot.add_cog(General(bot, guild_id, token))
+    logger.info(f"General cog has been added. Metadata: Version={General.__version__}, Author={General.__author__}")
 
     # Log the commands after setup
     logger.info("Registered commands after General cog setup:")
