@@ -46,7 +46,7 @@ class Debug(commands.Cog):
         ]
         return "\n".join(commands_list) if commands_list else "No commands available."
 
-    @discord.slash_command(name="tdiagnostics", description="Get full bot diagnostics and recent error logs.")
+    @discord.slash_command(name="diagnostics", description="Get full bot diagnostics and recent error logs.")
     async def slash_diagnostics(self, ctx: discord.ApplicationContext):
         """
         Provides full diagnostic information about the bot's state, environment, and recent errors.
