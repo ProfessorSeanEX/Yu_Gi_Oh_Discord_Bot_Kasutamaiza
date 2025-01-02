@@ -1,5 +1,3 @@
-### **README.md**
-
 # **Kasutamaiza Bot**
 
 Kasutamaiza Bot is a powerful and modular Discord bot designed to enhance server engagement, provide utility features, and support Yu-Gi-Oh enthusiasts with custom commands. This document covers the progress made in **Step 1 of Phase 1**.
@@ -14,6 +12,7 @@ Kasutamaiza Bot is a powerful and modular Discord bot designed to enhance server
 4. [Cogs](#cogs)
 5. [Technical Details](#technical-details)
 6. [Roadmap](#roadmap)
+7. [Helper Modules](#helper-modules-integration)
 
 ---
 
@@ -30,6 +29,9 @@ Kasutamaiza Bot is a powerful and modular Discord bot designed to enhance server
 
 - **Heartbeat**:
   - Periodic "heartbeat" messages in logs to confirm the bot is online and operational.
+
+- **Modular Helpers**:
+  - Over 24 specialized helper modules to handle tasks like asynchronous operations, database management, logging, permissions, and Yu-Gi-Oh specific utilities.
 
 ---
 
@@ -102,6 +104,8 @@ Kasutamaiza Bot is a powerful and modular Discord bot designed to enhance server
 - `/card_lookup [query]`: Search for a Yu-Gi-Oh! card by name, type, or filters.
 - `/deck_tips`: Get general tips for building a Yu-Gi-Oh! deck.
 - `/tournament_links`: Get links to Yu-Gi-Oh tournaments and events.
+- `/deck_analysis [deck_list]`: Provides an analysis of a deck including synergies and weaknesses.
+- `/card_recommendation [archetype]`: Suggests cards for a specific archetype.
 
 ---
 
@@ -146,6 +150,17 @@ Kasutamaiza Bot is a powerful and modular Discord bot designed to enhance server
 - **Heartbeat**:
   - Periodic logs confirm the bot is online and operational.
 
+### **Helper Modules Integration**
+
+The bot leverages a robust helper module system, where each helper provides distinct capabilities:
+
+- **Asynchronous Helper**: Efficient task scheduling and retry logic.
+- **Logging Helper**: Centralized log handling and monitoring.
+- **Database Helper**: Simplified CRUD operations.
+- **Economy Helper**: Manage virtual currency and transactions.
+- **Custom Card Helper**: Support for custom card lifecycle management.
+- And more, with over 24 helpers designed to streamline specific functionalities.
+
 ---
 
 ## **Roadmap**
@@ -161,6 +176,9 @@ Kasutamaiza Bot is a powerful and modular Discord bot designed to enhance server
 
 - Event scheduling for community engagement.
 - Advanced Yu-Gi-Oh utilities (e.g., deck analysis, synergy detection).
+- Integration of analytics for command usage and gameplay statistics.
+- Enhanced AI-driven recommendations for deck-building and gameplay strategies.
+- Implementation of user-specific configurations and settings.
 
 ---
 

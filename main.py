@@ -1,229 +1,223 @@
 """
 Main entry point for the Kasutamaiza Bot.
-- Initializes the bot, performs permissions checks, loads command modules (cogs), and utility modules (utils).
+- Initializes the bot, performs permissions checks, loads modules, and ensures commands sync properly with enhanced debugging.
+
+Metadata:
+- Version: 1.0.0          # Indicates the current version of the bot's main entry point.
+- Author: ProfessorSeanEX  # The developer or maintainer of this script.
+- Purpose: Initializes and runs the Kasutamaiza Bot with enhanced debugging and modularity.
+
+Notes:
+- Refactored to integrate standardized helper functions and logging utilities.
 """
 
-import os
-import time
-import asyncio  # For concurrent tasks
-import discord
-from discord.ext import commands
-from dotenv import load_dotenv, find_dotenv  # Enhanced loading for dotenv
-from loguru import logger
-from datetime import datetime, timedelta, timezone  # Import timezone for UTC
+# --- Standard Library Imports ---
+import os # For environment variable management.
+import sys  # To manipulate the Python runtime environment and paths.
+from pathlib import Path  # To handle filesystem paths in a cross-platform way.
+import signal  # For handling termination signals (e.g., SIGINT).
+import asyncio  # To manage asynchronous tasks and events.
+from datetime import datetime, timezone  # For handling time-related operations.
+import importlib
+import asyncpg
 
-import sys
-sys.path.append('/opt/kasutamaiza-bot')  # Add the directory explicitly
-from utils.db_manager import db_manager
+# --- Third-Party Library Imports ---
+import discord # Discord API integration for bot functionality.
 
+# --- Project Imports ---
+from utils import inject_helpers_into_namespace # Inject helpers dynamically.
 
-# Metadata
-__version__ = "1.3.0"
-__author__ = "ProfessorSeanEX"
-BOT_TYPE = "Slash Command-Based"
+# Inject all helpers into the global namespace for ease of use.
+inject_helpers_into_namespace(globals())  # Dynamically inject helper functions.
 
-# Load environment variables
-if not load_dotenv(find_dotenv()):  # Attempt to load .env file
-    logger.critical("Failed to load .env file. Ensure the file exists and is correctly configured.")
-    exit(1)
+# --- Metadata ---
+__version__ = "1.0.0"  # Current version of the bot's main script.
+__author__ = "ProfessorSeanEX"  # Developer responsible for maintaining this script.
+__purpose__ = "Initialize and run the Kasutamaiza Bot with enhanced debugging and modularity."
 
-# Load environment variables
-TOKEN = os.getenv("BOT_TOKEN")
-GUILD_ID = os.getenv("GUILD_ID")
+# --- Directories ---
+BASE_DIR = Path(__file__).resolve().parent  # Root directory of the script.
+COGS_DIR = validate_directory(BASE_DIR / "cogs")  # Validate and set directory for bot cogs.
+UTILS_DIR = validate_directory(BASE_DIR / "utils")  # Validate and set directory for utility functions.
+LOG_DIR = validate_directory(BASE_DIR / "logs")  # Validate and set directory for storing log files.
 
-if not TOKEN or not GUILD_ID:
-    logger.critical("Environment variables BOT_TOKEN or GUILD_ID are missing or invalid. Exiting.")
-    exit(1)
+# Ensure required directories exist.
+LOG_DIR.mkdir(parents=True, exist_ok=True)  # Create log directory if it doesn't exist.
 
-GUILD_ID = int(GUILD_ID)
+# --- Load Environment Variables ---
+try:
+    required_vars = {"BOT_TOKEN": str, "GUILD_ID": int}
+    env_vars = validate_required_environment_variables(required_vars)  # Validate and fetch environment variables.
+    TOKEN = env_vars["BOT_TOKEN"]  # Discord bot token.
+    GUILD_ID = env_vars["GUILD_ID"]  # Primary guild (server) ID for bot operations.
+except RuntimeError as e:
+    log_error("Environment Variable Validation", e)
+    exit(1)  # Exit if environment validation fails.
 
-# Set up logging
-logger.add("bot.log", rotation="10 MB", retention="10 days", backtrace=True, diagnose=True)
+# --- Logging Setup ---
+log_custom("INFO", "Initializing Kasutamaiza Bot logging...")  # Start of logging setup.
+log_custom("DEBUG", f"Base Directory: {BASE_DIR}")
+log_custom("DEBUG", f"Log Directory: {LOG_DIR}")
 
-# Intents for the bot
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+# --- Bot Setup ---
+# Define bot intents to control which events the bot listens to.
+intents = discord.Intents.default()  # Use default intents as a baseline.
+intents.message_content = True  # Enable message content access for command parsing.
+intents.members = True  # Enable access to guild (server) member data.
 
-# Bot setup
-bot = discord.Bot(intents=intents, guilds=[discord.Object(id=GUILD_ID)])  # Restrict to a specific guild
+# Initialize the bot with the specified intents and guilds.
+bot = discord.Bot(intents=intents, guilds=[discord.Object(id=GUILD_ID)])
 
+# Add custom bot attributes for modularity and feature tracking.
+bot.muted_members = {}  # Dictionary to track muted members by guild.
+bot.start_time = None  # Timestamp for bot's start time (used for uptime calculations).
+bot.db_pool = None  # Placeholder for the bot's database connection pool.
 
+# --- Event Handlers ---
 @bot.event
 async def on_ready():
     """
-    Triggered when the bot is successfully logged in.
+    Event triggered when the bot is ready and connected to Discord.
+
+    This function performs the following tasks:
+    - Logs the bot's readiness status and connected guilds.
+    - Logs sanitized environment variables for debugging.
+    - Initializes the database manager, connection pool, and table schemas.
+    - Handles errors gracefully during initialization.
     """
-    logger.info(f"Bot is online as {bot.user}")
-    logger.info(f"Bot Type: {BOT_TYPE}")
-    logger.info(f"Connected to Guild: {GUILD_ID}")
-
-    # Initialize database connection pool
     try:
-        await db_manager.initialize_pool()
-        logger.info("Database connection pool initialized successfully.")
-    except Exception as e:
-        logger.critical(f"Failed to initialize database pool: {e}")
-        exit(1)
+        # Log basic bot status.
+        log_command(bot, "on_ready")
+        log_custom("INFO", f"Bot online as {bot.user}.")
+        log_custom("DEBUG", f"Connected to Guilds: {[guild.name for guild in bot.guilds]}.")
 
-    # Perform permissions check
-    try:
-        guild = bot.get_guild(GUILD_ID)
-        if guild:
-            await check_permissions(guild)
-        else:
-            logger.warning(f"Bot could not retrieve the guild with ID: {GUILD_ID}")
-    except Exception as e:
-        logger.error(f"Failed to check permissions: {e}")
+        # Sanitize and log environment variables.
+        sensitive_keys = {"BOT_TOKEN", "DB_PASSWORD"}
+        sanitized_env_vars = {
+            k: ("[REDACTED]" if k in sensitive_keys else v) for k, v in os.environ.items()
+        }
+        log_custom("DEBUG", f"Environment Variables: {sanitized_env_vars}")
 
-    # Load cogs and utils concurrently
-    try:
-        logger.info("Starting cog and utility module loading...")
-        await asyncio.gather(load_cogs(bot), load_utils(), bot.sync_commands())
-        logger.info("Cogs and utilities loaded successfully. Commands synced.")
-    except Exception as e:
-        logger.error(f"Error during startup: {e}")
-
-    # Log all registered slash commands
-    try:
-        log_registered_commands()
-    except Exception as e:
-        logger.error(f"Failed to log registered commands: {e}")
-
-    # Set bot uptime
-    bot.start_time = datetime.now(timezone.utc)  # Set start time when the bot becomes ready
-
-    # Start heartbeat task
-    bot.loop.create_task(heartbeat())
-
-
-async def heartbeat():
-    """
-    Logs a heartbeat message periodically to indicate the bot is running.
-    """
-    while True:
+        # Database Initialization
         try:
-            logger.info("Heartbeat: Bot is online and operational.")
-            # Use timezone-aware datetime for UTC
-            await discord.utils.sleep_until(datetime.now(timezone.utc) + timedelta(minutes=10))
+            if not hasattr(bot, "db_manager"):
+                log_custom("INFO", "Initializing DatabaseManager...")
+                env_vars = validate_required_environment_variables({
+                    "DB_HOST": str,
+                    "DB_PORT": int,
+                    "DB_USER": str,
+                    "DB_PASSWORD": str,
+                    "DB_NAME": str,
+                })
+                db_manager = initialize_db_manager(bot, env_vars)
+                bot.db_manager = db_manager
+
+            if not hasattr(bot, "db_pool") or not bot.db_pool:
+                log_custom("INFO", "Initializing database connection pool...")
+                bot.db_pool = await bot.db_manager.initialize_pool()
+
+            log_custom("INFO", "Validating and creating database schemas...")
+            await bot.db_manager.ensure_table_schemas()
+
+            log_custom("INFO", "Database initialized successfully.")
+        except asyncpg.PostgresError as pg_error:
+            log_error(f"PostgreSQL Error during Database Initialization: {str(pg_error)}")
+            await bot.close()
+            exit(1)
+        except RuntimeError as re:
+            log_error(f"Database Initialization Error: {str(re)}")
+            await bot.close()
+            exit(1)
         except Exception as e:
-            logger.error(f"Heartbeat encountered an error: {e}")
+            log_error("Unexpected Error during Database Initialization", e)
+            await bot.close()
+            exit(1)
 
 
-async def check_permissions(guild: discord.Guild):
-    """
-    Check if the bot has the required permissions in the guild.
-    """
-    required_permissions = [
-        "administrator",
-        "manage_guild",
-        "manage_roles",
-        "send_messages",
-        "manage_messages",
-        "read_message_history",
-        "manage_channels",
-    ]
-
-    bot_member = guild.me
-    missing_perms = [
-        perm for perm in required_permissions
-        if not getattr(bot_member.guild_permissions, perm, False)
-    ]
-
-    if missing_perms:
-        logger.warning(f"Bot is missing the following permissions in guild {guild.name} ({guild.id}): {missing_perms}")
-    else:
-        logger.info(f"Bot has all required permissions in guild {guild.name} ({guild.id}).")
-
-
-async def load_cogs(bot: discord.Bot):
-    """
-    Dynamically loads all command modules (cogs) from the 'cogs' directory.
-    """
-    if not os.path.exists('./cogs'):
-        logger.critical("Cogs directory './cogs' does not exist. Exiting.")
-        exit(1)
-
-    failed_cogs = 0
-    for filename in os.listdir('./cogs'):
-        if filename.endswith('.py'):
-            module_name = f'cogs.{filename[:-3]}'
-            try:
-                logger.debug(f"Attempting to load cog: {module_name}")
-                module = __import__(module_name, fromlist=['setup'])
-
-                # Ensure `setup` function is present and callable
-                if hasattr(module, 'setup') and callable(module.setup):
-                    start_time = time.monotonic()
-                    module.setup(bot, GUILD_ID, TOKEN)  # Pass GUILD_ID and TOKEN
-                    elapsed_time = time.monotonic() - start_time
-                    logger.info(f"Successfully loaded cog: {module_name} in {elapsed_time:.2f} seconds.")
+        # Validate bot permissions in the primary guild.
+        try:
+            guild = bot.get_guild(GUILD_ID)
+            if guild:
+                bot_member = guild.me
+                permissions = validate_bot_permissions(
+                    bot_member,
+                    [
+                        "administrator",
+                        "manage_guild",
+                        "manage_roles",
+                        "send_messages",
+                        "manage_messages",
+                        "read_message_history",
+                        "manage_channels",
+                    ],
+                )
+                if not permissions["has_all"]:
+                    log_custom("WARNING", f"Missing permissions: {permissions['missing']}")
                 else:
-                    logger.error(f"Cog {module_name} is missing a valid 'setup' function.")
-            except Exception as e:
-                failed_cogs += 1
-                logger.error(f"Failed to load cog {module_name}: {e}")
+                    log_custom("INFO", "Bot has all required permissions.")
+    
+        except Exception as e:
+            log_error("Permission Validation", e)
 
-    if failed_cogs > 0:
-        logger.warning(f"{failed_cogs} cog(s) failed to load.")
-
-
-async def load_utils():
-    """
-    Dynamically loads all utility modules from the 'utils' directory.
-    """
-    if not os.path.exists('./utils'):
-        logger.warning("Utilities directory './utils' does not exist. Skipping utility loading.")
-        return
-
-    failed_utils = 0
-    loaded_utils = 0
-    for filename in os.listdir('./utils'):
-        if filename.endswith('.py'):
-            module_name = f'utils.{filename[:-3]}'
-            try:
-                logger.debug(f"Attempting to load utility module: {module_name}")
-                module = __import__(module_name)
-                if hasattr(module, 'initialize') and callable(module.initialize):
-                    await module.initialize()  # Call initialize function if present
-                    logger.info(f"Successfully initialized utility module: {module_name}")
-                else:
-                    logger.info(f"Utility module {module_name} loaded successfully (no initialization required).")
-                loaded_utils += 1
-            except Exception as e:
-                failed_utils += 1
-                logger.error(f"Failed to load utility module {module_name}: {e}")
-
-    logger.info(f"Utility loading complete: {loaded_utils} loaded, {failed_utils} failed.")
-
-
-def log_registered_commands():
-    """
-    Log all registered slash commands and their options.
-    """
-    logger.info("Registered Slash Commands:")
-    for cmd in bot.application_commands:
-        logger.info(
-            f" - Command: {cmd.name} | Description: {cmd.description} | Guild ID(s): {cmd.guild_ids or 'Global'}"
-        )
-
-        # Log options if available
-        if hasattr(cmd, 'options') and cmd.options:
-            option_details = ", ".join(
-                [f"{opt.name} ({opt.input_type})" for opt in cmd.options if hasattr(opt, 'input_type')]
+        # Load cogs and utilities dynamically.
+        try:
+            load_results = await asyncio.gather(
+                load_modules_from_directory(str(COGS_DIR), "cogs", bot),
+                load_modules_from_directory(str(UTILS_DIR), "utils", bot),
             )
-            logger.info(f"   Options: {option_details}")
-        else:
-            logger.info("   Options: None")
+            log_custom("INFO", f"Modules loaded successfully: {load_results}")
+        except Exception as e:
+            log_error("Module Loading", e)
 
-    if not bot.application_commands:
-        logger.warning("No slash commands are registered.")
+        # Validate command decorators for all loaded commands.
+        validate_command_decorators(bot)  # Use helper for validation.
+
+        # Sync commands with Discord.
+        try:
+            synced = await bot.sync_commands(guild_ids=[GUILD_ID])
+            if synced is None:
+                log_custom("WARNING", "No commands were synchronized.")
+                synced = []
+
+            log_custom("INFO", f"Commands synchronized: {[cmd.name for cmd in synced]}")
+        except Exception as e:
+            log_error("Command Synchronization", e)
+
+        bot.start_time = datetime.now(timezone.utc)  # Set the bot's start time.
+        log_uptime(bot.start_time)  # Log uptime details.
+    
+    except Exception as e:
+        log_error("on_ready", e)
+
+# --- Graceful Shutdown ---
+async def handle_graceful_shutdown(bot, db_manager):
+    """
+    Handles signals for graceful shutdown using the Shutdown Helper.
+
+    Args:
+        bot: The bot instance.
+        db_manager: The database manager instance.
+    """
+    try:
+        log_custom("INFO", "Shutting down Kasutamaiza Bot...")
+        if db_manager:
+            await db_manager.close_pool()
+        await shutdown_procedure(db_manager=db_manager)
+        log_custom("INFO", "Shutdown complete.")
+    except Exception as e:
+        log_error("Graceful Shutdown", e)
+    finally:
+        await close_bot()
 
 
+# --- Main Execution ---
 if __name__ == "__main__":
     try:
-        logger.info("Starting Kasutamaiza Bot...")
+        async def shutdown_coroutine():
+            await handle_graceful_shutdown(bot, bot.db_manager)
+
+        setup_signal_handlers()  # Configure signal handlers.
+        log_custom("INFO", "Starting Kasutamaiza Bot...")
         bot.run(TOKEN)
     except Exception as e:
-        logger.critical(f"Bot failed to start: {e}")
-        logger.exception(e)
+        log_error("Bot Startup", e)

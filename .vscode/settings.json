@@ -3,7 +3,17 @@
         "https://json.schemastore.org/github-action.json": "file:///e%3A/Yu_Gi_Oh_Discord_Bot_Kasutamaiza/.github/workflows/deploy.yml"
     },
     "cSpell.words": [
+        "checkmark",
+        "Docstrings",
+        "ILIKE",
+        "infile",
         "kasutamaiza",
-        "webfactory"
+        "kwargs",
+        "Messageable",
+        "TIMESTAMPTZ",
+        "unencapsulated",
+        "webfactory",
+        "YGOPRO",
+        "yugioh"
     ]
 }
